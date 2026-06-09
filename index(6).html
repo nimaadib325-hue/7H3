@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="fa" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0d0f14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fib MA Bands">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Fib MA Bands Pro</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  :root{
+    --bg0:#0d0f14;--bg1:#12151c;--bg2:#181c26;--bg3:#1e2330;
+    --border:#252a38;--border2:#2e3448;
+    --text1:#e8eaf0;--text2:#9ba3b8;--text3:#5c6480;
+    --accent:#f0b429;--accent2:#e07b39;
+    --green:#26a69a;--green2:#00c79a;--red:#ef5350;--red2:#ff6b6b;
+    --fib1:rgba(240,180,41,0.18);--fib2:rgba(240,180,41,0.10);--fib3:rgba(240,180,41,0.05);
+    --band-up:rgba(38,166,154,0.25);--band-dn:rgba(239,83,80,0.25);
+    --ma50:#5b9cf6;--ma100:#c084fc;
+    --entry:#f0b429;--tp1:#26a69a;--tp2:#00c79a;--sl:#ef5350;
+  }
+  html,body{width:100%;height:100%;overflow:hidden;background:var(--bg0);color:var(--text1);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+  #app{display:flex;flex-direction:column;height:100vh;width:100vw}
+
+  /* ── Header ── */
+  #header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:10px 14px 8px;background:var(--bg1);
+    border-bottom:1px solid var(--border);
+    min-height:56px;flex-shrink:0;
+    position:relative;z-index:10;
+  }
+  .logo{display:flex;align-items:center;gap:8px}
+  .logo-icon{width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,#f0b429,#e07b39);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#0d0f14;letter-spacing:-0.5px;flex-shrink:0}
+  .logo-text{font-size:13px;font-weight:600;color:var(--text1);letter-spacing:0.2px}
+  .logo-sub{font-size:10px;color:var(--text3);letter-spacing:0.5px;text-transform:uppercase}
+
+  /* Symbol selector */
+  #sym-wrap{display:flex;align-items:center;gap:6px}
+  #sym-btn{
+    display:flex;align-items:center;gap:5px;
+    background:var(--bg2);border:1px solid var(--border);
+    border-radius:8px;padding:5px 10px;cursor:pointer;
+    font-size:13px;font-weight:600;color:var(--text1);
+    transition:border-color .2s;
+  }
+  #sym-btn:hover{border-color:var(--border2)}
+  #sym-btn .arrow{font-size:9px;color:var(--text3);margin-left:2px}
+  #price-badge{
+    font-size:13px;font-weight:700;color:var(--accent);
+    background:rgba(240,180,41,0.1);border:1px solid rgba(240,180,41,0.2);
+    border-radius:6px;padding:4px 8px;min-width:90px;text-align:center;
+    transition:color .3s;
+  }
+  #price-badge.up{color:var(--green2)}
+  #price-badge.dn{color:var(--red2)}
+  #change-pct{font-size:11px;font-weight:500;color:var(--text2);min-width:52px;text-align:right}
+  #change-pct.up{color:var(--green2)}#change-pct.dn{color:var(--red2)}
+
+  /* ── Timeframe bar ── */
+  #tf-bar{
+    display:flex;align-items:center;gap:4px;
+    padding:6px 14px;background:var(--bg1);
+    border-bottom:1px solid var(--border);flex-shrink:0;
+    overflow-x:auto;scrollbar-width:none;
+  }
+  #tf-bar::-webkit-scrollbar{display:none}
+  .tf-btn{
+    padding:4px 10px;border-radius:6px;border:1px solid transparent;
+    font-size:11px;font-weight:600;color:var(--text3);cursor:pointer;
+    background:transparent;white-space:nowrap;transition:all .15s;letter-spacing:0.3px;
+  }
+  .tf-btn:hover{color:var(--text2);background:var(--bg2)}
+  .tf-btn.active{color:var(--accent);background:rgba(240,180,41,0.1);border-color:rgba(240,180,41,0.25)}
+  .tf-sep{width:1px;height:14px;background:var(--border);flex-shrink:0;margin:0 2px}
+
+  /* ── Canvas area ── */
+  #chart-wrap{
+    flex:1;position:relative;overflow:hidden;
+    background:var(--bg0);cursor:crosshair;
+  }
+  #main-canvas{display:block;width:100%;height:100%}
+  #overlay-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+
+  /* Crosshair tooltip */
+  #crosshair-info{
+    position:absolute;top:8px;left:50%;transform:translateX(-50%);
+    background:rgba(18,21,28,0.92);border:1px solid var(--border2);
+    border-radius:8px;padding:5px 12px;
+    font-size:11px;color:var(--text2);
+    display:none;pointer-events:none;white-space:nowrap;backdrop-filter:blur(8px);
+    z-index:5;
+  }
+  #crosshair-info span{color:var(--text1);font-weight:600;margin-left:4px}
+
+  /* Price scale */
+  #price-scale{
+    position:absolute;right:0;top:0;width:68px;height:100%;
+    pointer-events:none;z-index:4;
+  }
+  /* Time scale */
+  #time-scale{
+    position:absolute;bottom:0;left:0;right:68px;height:20px;
+    pointer-events:none;z-index:4;
+  }
+
+  /* Loading */
+  #loading{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:12px;background:var(--bg0);z-index:20;
+  }
+  .spinner{
+    width:32px;height:32px;border-radius:50%;
+    border:2px solid var(--border2);border-top-color:var(--accent);
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .load-txt{font-size:12px;color:var(--text3);letter-spacing:0.5px}
+
+  /* ── Bottom info bar ── */
+  #info-bar{
+    display:flex;align-items:center;gap:0;
+    padding:0;background:var(--bg1);
+    border-top:1px solid var(--border);flex-shrink:0;
+    overflow-x:auto;scrollbar-width:none;min-height:38px;
+  }
+  #info-bar::-webkit-scrollbar{display:none}
+  .info-chip{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:4px 12px;border-right:1px solid var(--border);
+    flex-shrink:0;min-width:70px;
+  }
+  .info-chip .lbl{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:1px}
+  .info-chip .val{font-size:11px;font-weight:600;color:var(--text1)}
+  .info-chip .val.up{color:var(--green2)}.info-chip .val.dn{color:var(--red2)}
+  .info-chip .val.accent{color:var(--accent)}
+
+  /* ── Signal badge ── */
+  #signal-box{
+    display:flex;align-items:center;gap:8px;padding:4px 14px;
+    border-right:1px solid var(--border);flex-shrink:0;
+  }
+  .sig-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+  .sig-dot.bull{background:var(--green2);box-shadow:0 0 6px var(--green2)}
+  .sig-dot.bear{background:var(--red2);box-shadow:0 0 6px var(--red2)}
+  .sig-dot.neutral{background:var(--text3)}
+  .sig-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px}
+  .sig-label.bull{color:var(--green2)}.sig-label.bear{color:var(--red2)}.sig-label.neutral{color:var(--text3)}
+
+  /* ── Settings panel ── */
+  #settings-btn{
+    position:absolute;top:10px;right:82px;
+    width:30px;height:30px;border-radius:8px;
+    background:var(--bg2);border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;z-index:6;font-size:14px;color:var(--text2);
+    transition:border-color .2s;
+  }
+  #settings-btn:hover{border-color:var(--border2)}
+
+  /* Symbol dropdown */
+  #sym-dropdown{
+    position:absolute;top:56px;left:14px;
+    background:var(--bg2);border:1px solid var(--border2);
+    border-radius:10px;overflow:hidden;z-index:50;
+    box-shadow:0 8px 32px rgba(0,0,0,0.5);
+    display:none;min-width:160px;
+  }
+  #sym-dropdown.show{display:block}
+  .sym-item{
+    padding:10px 14px;font-size:13px;font-weight:500;
+    color:var(--text2);cursor:pointer;border-bottom:1px solid var(--border);
+    transition:background .15s,color .15s;
+  }
+  .sym-item:last-child{border-bottom:none}
+  .sym-item:hover,.sym-item.active{background:rgba(240,180,41,0.08);color:var(--accent)}
+
+  /* ── Level lines legend ── */
+  #legend{
+    position:absolute;top:8px;left:8px;
+    background:rgba(13,15,20,0.7);border:1px solid var(--border);
+    border-radius:8px;padding:7px 10px;z-index:5;
+    backdrop-filter:blur(6px);pointer-events:none;
+  }
+  .leg-row{display:flex;align-items:center;gap:6px;margin-bottom:3px;font-size:10px;color:var(--text2)}
+  .leg-row:last-child{margin-bottom:0}
+  .leg-line{width:18px;height:2px;border-radius:1px;flex-shrink:0}
+  .leg-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+
+  /* Install banner */
+  #install-banner{
+    position:fixed;bottom:0;left:0;right:0;
+    background:var(--bg2);border-top:1px solid var(--border2);
+    padding:12px 16px;display:none;align-items:center;justify-content:space-between;
+    z-index:100;gap:10px;
+  }
+  #install-banner.show{display:flex}
+  #install-banner p{font-size:12px;color:var(--text2);flex:1}
+  #install-banner p strong{color:var(--text1);display:block;font-size:13px;margin-bottom:1px}
+  .btn-install{
+    background:var(--accent);color:#0d0f14;
+    border:none;border-radius:8px;padding:8px 16px;
+    font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;
+  }
+  .btn-dismiss{background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:4px}
+
+  @media(max-width:360px){
+    .info-chip{min-width:58px;padding:4px 8px}
+    .info-chip .val{font-size:10px}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Header -->
+  <div id="header">
+    <div class="logo">
+      <div class="logo-icon">7F</div>
+      <div>
+        <div class="logo-text">Fib MA Bands Pro</div>
+        <div class="logo-sub">7H System</div>
+      </div>
+    </div>
+    <div id="sym-wrap" style="display:flex;align-items:center;gap:6px">
+      <div id="sym-btn" onclick="toggleSymDropdown()">
+        <span id="sym-label">BTCUSDT</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div id="price-badge">—</div>
+      <div id="change-pct">—</div>
+    </div>
+  </div>
+
+  <!-- Symbol dropdown -->
+  <div id="sym-dropdown">
+    <div class="sym-item active" onclick="selectSymbol('BTCUSDT')">BTC/USDT</div>
+    <div class="sym-item" onclick="selectSymbol('ETHUSDT')">ETH/USDT</div>
+    <div class="sym-item" onclick="selectSymbol('BNBUSDT')">BNB/USDT</div>
+    <div class="sym-item" onclick="selectSymbol('SOLUSDT')">SOL/USDT</div>
+    <div class="sym-item" onclick="selectSymbol('XRPUSDT')">XRP/USDT</div>
+    <div class="sym-item" onclick="selectSymbol('ADAUSDT')">ADA/USDT</div>
+    <div class="sym-item" onclick="selectSymbol('DOGEUSDT')">DOGE/USDT</div>
+    <div class="sym-item" onclick="selectSymbol('AVAXUSDT')">AVAX/USDT</div>
+  </div>
+
+  <!-- Timeframe bar -->
+  <div id="tf-bar">
+    <button class="tf-btn" onclick="setTF('5m')">5m</button>
+    <button class="tf-btn" onclick="setTF('15m')">15m</button>
+    <button class="tf-btn" onclick="setTF('30m')">30m</button>
+    <div class="tf-sep"></div>
+    <button class="tf-btn active" onclick="setTF('1h')">1H</button>
+    <button class="tf-btn" onclick="setTF('2h')">2H</button>
+    <button class="tf-btn" onclick="setTF('4h')">4H</button>
+    <div class="tf-sep"></div>
+    <button class="tf-btn" onclick="setTF('1d')">1D</button>
+    <button class="tf-btn" onclick="setTF('1w')">1W</button>
+  </div>
+
+  <!-- Chart area -->
+  <div id="chart-wrap">
+    <div id="loading">
+      <div class="spinner"></div>
+      <div class="load-txt">در حال بارگذاری داده‌ها...</div>
+    </div>
+
+    <canvas id="main-canvas"></canvas>
+    <canvas id="overlay-canvas"></canvas>
+
+    <!-- Legend -->
+    <div id="legend">
+      <div class="leg-row"><div class="leg-line" style="background:var(--accent)"></div> Fib Mid Band</div>
+      <div class="leg-row"><div class="leg-line" style="background:rgba(240,180,41,0.5)"></div> Fib Upper/Lower</div>
+      <div class="leg-row"><div class="leg-line" style="background:var(--ma50)"></div> MA 50</div>
+      <div class="leg-row"><div class="leg-line" style="background:var(--ma100)"></div> MA 100</div>
+      <div class="leg-row"><div class="leg-line" style="background:var(--entry);height:1px;border-top:1px dashed var(--entry)"></div> Entry 0.266</div>
+      <div class="leg-row"><div class="leg-dot" style="background:var(--tp1)"></div> TP1 0.86</div>
+      <div class="leg-row"><div class="leg-dot" style="background:var(--tp2)"></div> TP2 1.1</div>
+    </div>
+
+    <!-- Crosshair info -->
+    <div id="crosshair-info">
+      O:<span id="ci-o">—</span> H:<span id="ci-h">—</span> L:<span id="ci-l">—</span> C:<span id="ci-c">—</span>
+    </div>
+
+    <!-- Price scale canvas -->
+    <canvas id="price-scale"></canvas>
+    <canvas id="time-scale"></canvas>
+  </div>
+
+  <!-- Bottom info bar -->
+  <div id="info-bar">
+    <div id="signal-box">
+      <div class="sig-dot neutral" id="sig-dot"></div>
+      <div class="sig-label neutral" id="sig-label">WAIT</div>
+    </div>
+    <div class="info-chip">
+      <div class="lbl">Open</div>
+      <div class="val" id="ib-open">—</div>
+    </div>
+    <div class="info-chip">
+      <div class="lbl">High</div>
+      <div class="val up" id="ib-high">—</div>
+    </div>
+    <div class="info-chip">
+      <div class="lbl">Low</div>
+      <div class="val dn" id="ib-low">—</div>
+    </div>
+    <div class="info-chip">
+      <div class="lbl">Volume</div>
+      <div class="val accent" id="ib-vol">—</div>
+    </div>
+    <div class="info-chip">
+      <div class="lbl">ATR</div>
+      <div class="val" id="ib-atr">—</div>
+    </div>
+    <div class="info-chip">
+      <div class="lbl">MA50</div>
+      <div class="val" id="ib-ma50" style="color:var(--ma50)">—</div>
+    </div>
+    <div class="info-chip">
+      <div class="lbl">MA100</div>
+      <div class="val" id="ib-ma100" style="color:var(--ma100)">—</div>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<!-- Install banner -->
+<div id="install-banner">
+  <p><strong>نصب Fib MA Bands Pro</strong>روی موبایل نصب کنید</p>
+  <button class="btn-install" onclick="installPWA()">نصب</button>
+  <button class="btn-dismiss" onclick="dismissInstall()">✕</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════════════
+const CFG = {
+  symbol: 'BTCUSDT',
+  tf: '1h',
+  smma_period: 250,
+  atr_period: 300,
+  smooth_period: 300,
+  ma50_period: 50,
+  ma100_period: 100,
+  fib_levels: [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0, 1.272, 1.618],
+  // 7H System levels
+  entry_fib: 0.266,
+  tp1_fib: 0.86,
+  tp2_fib: 1.1,
+  sl_fib: -0.13,
+  candle_limit: 500,
+};
+
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+let candles = [];
+let indicators = {};
+let chart = {
+  offsetX: 0,      // pan offset in pixels
+  scaleX: 10,      // px per candle
+  priceMin: 0,
+  priceMax: 0,
+  isDragging: false,
+  dragStartX: 0,
+  dragStartOffset: 0,
+  touchStartDist: 0,
+  touchStartScale: 0,
+};
+let ws = null;
+let wsReconnectTimer = null;
+let crosshairX = -1, crosshairY = -1;
+let deferredPrompt = null;
+let animFrame = null;
+
+// ═══════════════════════════════════════════════════════
+//  CANVAS SETUP
+// ═══════════════════════════════════════════════════════
+const mainCanvas = document.getElementById('main-canvas');
+const overlayCanvas = document.getElementById('overlay-canvas');
+const priceScaleEl = document.getElementById('price-scale');
+const timeScaleEl = document.getElementById('time-scale');
+const ctx = mainCanvas.getContext('2d');
+const octx = overlayCanvas.getContext('2d');
+const pctx = priceScaleEl.getContext('2d');
+const tctx = timeScaleEl.getContext('2d');
+const chartWrap = document.getElementById('chart-wrap');
+
+const PRICE_W = 68;
+const TIME_H = 20;
+
+function resizeCanvases() {
+  const w = chartWrap.clientWidth;
+  const h = chartWrap.clientHeight;
+  const dpr = window.devicePixelRatio || 1;
+
+  [mainCanvas, overlayCanvas].forEach(c => {
+    c.width = (w - PRICE_W) * dpr;
+    c.height = (h - TIME_H) * dpr;
+    c.style.width = (w - PRICE_W) + 'px';
+    c.style.height = (h - TIME_H) + 'px';
+  });
+  priceScaleEl.width = PRICE_W * dpr;
+  priceScaleEl.height = (h - TIME_H) * dpr;
+  priceScaleEl.style.width = PRICE_W + 'px';
+  priceScaleEl.style.height = (h - TIME_H) + 'px';
+  priceScaleEl.style.top = '0';
+  priceScaleEl.style.right = '0';
+
+  timeScaleEl.width = (w - PRICE_W) * dpr;
+  timeScaleEl.height = TIME_H * dpr;
+  timeScaleEl.style.width = (w - PRICE_W) + 'px';
+  timeScaleEl.style.height = TIME_H + 'px';
+  timeScaleEl.style.bottom = '0';
+  timeScaleEl.style.left = '0';
+
+  [ctx, octx, pctx, tctx].forEach((c, i) => {
+    const canvas = [mainCanvas, overlayCanvas, priceScaleEl, timeScaleEl][i];
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  });
+
+  scheduleRender();
+}
+
+// ═══════════════════════════════════════════════════════
+//  MATH HELPERS
+// ═══════════════════════════════════════════════════════
+function smma(arr, period) {
+  // Smoothed Moving Average
+  const result = new Array(arr.length).fill(NaN);
+  if (arr.length < period) return result;
+  // Init with SMA
+  let sum = 0;
+  for (let i = 0; i < period; i++) sum += arr[i];
+  result[period - 1] = sum / period;
+  for (let i = period; i < arr.length; i++) {
+    result[i] = (result[i - 1] * (period - 1) + arr[i]) / period;
+  }
+  return result;
+}
+
+function sma(arr, period) {
+  const result = new Array(arr.length).fill(NaN);
+  for (let i = period - 1; i < arr.length; i++) {
+    let s = 0;
+    for (let j = 0; j < period; j++) s += arr[i - j];
+    result[i] = s / period;
+  }
+  return result;
+}
+
+function trueRange(candles) {
+  return candles.map((c, i) => {
+    if (i === 0) return c.high - c.low;
+    const prev = candles[i - 1];
+    return Math.max(c.high - c.low, Math.abs(c.high - prev.close), Math.abs(c.low - prev.close));
+  });
+}
+
+function atr(candles, period) {
+  const tr = trueRange(candles);
+  return smma(tr, period);
+}
+
+// Fibonacci Bands (BigBeluga style)
+// Uses SMMA of (High+Low)/2 as source, ATR for band width, then smooths bands
+function calcFibBands(candles, smma_period, atr_period, smooth_period) {
+  const src = candles.map(c => (c.high + c.low) / 2);
+  const highs = candles.map(c => c.high);
+  const lows = candles.map(c => c.low);
+
+  const midSmma = smma(src, smma_period);
+  const atrVals = atr(candles, atr_period);
+
+  // Fibonacci multipliers
+  const fibs = [0.236, 0.382, 0.5, 0.618, 0.786, 1.0, 1.272, 1.618, 2.0, 2.618];
+
+  // Raw bands
+  const rawUpper = fibs.map(f => midSmma.map((m, i) => isNaN(m) || isNaN(atrVals[i]) ? NaN : m + atrVals[i] * f));
+  const rawLower = fibs.map(f => midSmma.map((m, i) => isNaN(m) || isNaN(atrVals[i]) ? NaN : m - atrVals[i] * f));
+
+  // Smooth bands
+  const upperBands = rawUpper.map(band => smma(band.map(v => isNaN(v) ? 0 : v), smooth_period));
+  const lowerBands = rawLower.map(band => smma(band.map(v => isNaN(v) ? 0 : v), smooth_period));
+
+  // Smooth mid
+  const midBand = smma(midSmma.map(v => isNaN(v) ? 0 : v), smooth_period);
+
+  return { midBand, upperBands, lowerBands, atrVals };
+}
+
+function calcIndicators() {
+  if (candles.length < 10) return;
+
+  const closes = candles.map(c => c.close);
+  const ma50 = sma(closes, CFG.ma50_period);
+  const ma100 = sma(closes, CFG.ma100_period);
+  const fibBands = calcFibBands(candles, CFG.smma_period, CFG.atr_period, CFG.smooth_period);
+
+  indicators = { ma50, ma100, ...fibBands };
+}
+
+// ═══════════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════════
+function getChartDims() {
+  const w = mainCanvas.offsetWidth;
+  const h = mainCanvas.offsetHeight;
+  return { w, h };
+}
+
+function visibleRange() {
+  const { w } = getChartDims();
+  const cw = chart.scaleX;
+  const total = candles.length;
+  // rightmost candle index
+  const rightIdx = Math.floor((total - 1) - chart.offsetX / cw);
+  const leftIdx = Math.floor(rightIdx - w / cw);
+  return {
+    from: Math.max(0, leftIdx),
+    to: Math.min(total - 1, rightIdx + 1),
+  };
+}
+
+function priceToY(price, pMin, pMax, h) {
+  return h - ((price - pMin) / (pMax - pMin)) * h;
+}
+
+function indexToX(idx) {
+  const { w } = getChartDims();
+  const total = candles.length;
+  // x = from right edge
+  return w - (total - 1 - idx) * chart.scaleX + chart.offsetX - chart.scaleX / 2;
+}
+
+function scheduleRender() {
+  if (animFrame) cancelAnimationFrame(animFrame);
+  animFrame = requestAnimationFrame(render);
+}
+
+function render() {
+  if (!candles.length) return;
+  const { w, h } = getChartDims();
+  const { from, to } = visibleRange();
+
+  // Compute visible price range with padding
+  let pMin = Infinity, pMax = -Infinity;
+  for (let i = from; i <= to; i++) {
+    const c = candles[i];
+    if (!c) continue;
+    pMin = Math.min(pMin, c.low);
+    pMax = Math.max(pMax, c.high);
+    // Include bands
+    if (indicators.upperBands) {
+      for (let b = 0; b < indicators.upperBands.length; b++) {
+        const v = indicators.upperBands[b][i];
+        if (!isNaN(v) && v > 0) { pMin = Math.min(pMin, v); pMax = Math.max(pMax, v); }
+      }
+      for (let b = 0; b < indicators.lowerBands.length; b++) {
+        const v = indicators.lowerBands[b][i];
+        if (!isNaN(v) && v > 0) { pMin = Math.min(pMin, v); pMax = Math.max(pMax, v); }
+      }
+    }
+  }
+  if (pMin === Infinity) return;
+  const pad = (pMax - pMin) * 0.06;
+  pMin -= pad; pMax += pad;
+  chart.priceMin = pMin; chart.priceMax = pMax;
+
+  function py(price) { return priceToY(price, pMin, pMax, h); }
+
+  // ── Clear ──
+  ctx.fillStyle = '#0d0f14';
+  ctx.fillRect(0, 0, w, h);
+
+  // ── Grid ──
+  ctx.strokeStyle = '#1e2330';
+  ctx.lineWidth = 0.5;
+  const gridLines = 6;
+  for (let i = 0; i <= gridLines; i++) {
+    const y = (h / gridLines) * i;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+
+  // ── Fib Bands fills ──
+  if (indicators.upperBands && indicators.upperBands.length > 0) {
+    const bandColors = [
+      'rgba(240,180,41,0.07)',
+      'rgba(240,180,41,0.05)',
+      'rgba(240,180,41,0.04)',
+      'rgba(240,180,41,0.03)',
+    ];
+    for (let b = 0; b < Math.min(4, indicators.upperBands.length - 1); b++) {
+      ctx.beginPath();
+      let started = false;
+      for (let i = from; i <= to; i++) {
+        const x = indexToX(i);
+        const uTop = indicators.upperBands[b + 1][i];
+        if (isNaN(uTop) || uTop <= 0) continue;
+        const y = py(uTop);
+        if (!started) { ctx.moveTo(x, y); started = true; }
+        else ctx.lineTo(x, y);
+      }
+      for (let i = to; i >= from; i--) {
+        const x = indexToX(i);
+        const uBot = indicators.upperBands[b][i];
+        if (isNaN(uBot) || uBot <= 0) continue;
+        ctx.lineTo(x, py(uBot));
+      }
+      ctx.closePath();
+      ctx.fillStyle = bandColors[b];
+      ctx.fill();
+
+      // Lower fills
+      ctx.beginPath();
+      started = false;
+      for (let i = from; i <= to; i++) {
+        const x = indexToX(i);
+        const lBot = indicators.lowerBands[b + 1][i];
+        if (isNaN(lBot) || lBot <= 0) continue;
+        const y = py(lBot);
+        if (!started) { ctx.moveTo(x, y); started = true; }
+        else ctx.lineTo(x, y);
+      }
+      for (let i = to; i >= from; i--) {
+        const x = indexToX(i);
+        const lTop = indicators.lowerBands[b][i];
+        if (isNaN(lTop) || lTop <= 0) continue;
+        ctx.lineTo(x, py(lTop));
+      }
+      ctx.closePath();
+      ctx.fillStyle = bandColors[b];
+      ctx.fill();
+    }
+  }
+
+  // ── Fib Band lines ──
+  const bandLineColors = [
+    'rgba(240,180,41,0.5)',
+    'rgba(240,180,41,0.35)',
+    'rgba(240,180,41,0.25)',
+    'rgba(240,180,41,0.15)',
+    'rgba(240,180,41,0.1)',
+  ];
+  if (indicators.upperBands) {
+    for (let b = 0; b < Math.min(5, indicators.upperBands.length); b++) {
+      drawLine(ctx, indicators.upperBands[b], from, to, bandLineColors[b], b === 0 ? 1.2 : 0.6, py);
+      drawLine(ctx, indicators.lowerBands[b], from, to, bandLineColors[b], b === 0 ? 1.2 : 0.6, py);
+    }
+    // Mid band — brightest
+    drawLine(ctx, indicators.midBand, from, to, '#f0b429', 1.5, py);
+  }
+
+  // ── MA 50 / 100 ──
+  if (indicators.ma50) drawLine(ctx, indicators.ma50, from, to, '#5b9cf6', 1.2, py);
+  if (indicators.ma100) drawLine(ctx, indicators.ma100, from, to, '#c084fc', 1.2, py);
+
+  // ── 7H System levels (based on last mid band + ATR) ──
+  const lastIdx = to;
+  if (indicators.midBand && indicators.atrVals) {
+    const mid = indicators.midBand[lastIdx];
+    const atrV = indicators.atrVals[lastIdx];
+    if (!isNaN(mid) && !isNaN(atrV) && mid > 0 && atrV > 0) {
+      const entry = mid + atrV * CFG.entry_fib;
+      const tp1   = mid + atrV * CFG.tp1_fib;
+      const tp2   = mid + atrV * CFG.tp2_fib;
+      const sl    = mid + atrV * CFG.sl_fib;
+
+      drawHLine(ctx, entry, w, py, '#f0b429', [4, 3], 1.2, 'Entry 0.266');
+      drawHLine(ctx, tp1,   w, py, '#26a69a', [4, 3], 1.0, 'TP1 0.86');
+      drawHLine(ctx, tp2,   w, py, '#00c79a', [4, 3], 1.0, 'TP2 1.1');
+      drawHLine(ctx, sl,    w, py, '#ef5350', [4, 3], 1.0, 'SL -0.13');
+    }
+  }
+
+  // ── Candles ──
+  const cw = chart.scaleX;
+  const candleW = Math.max(1, cw * 0.65);
+
+  for (let i = from; i <= to; i++) {
+    const c = candles[i];
+    if (!c) continue;
+    const x = indexToX(i);
+    const isBull = c.close >= c.open;
+    const bodyColor = isBull ? '#26a69a' : '#ef5350';
+    const wickColor = isBull ? '#1a7a73' : '#a33636';
+
+    // Wick
+    ctx.strokeStyle = wickColor;
+    ctx.lineWidth = Math.max(0.5, cw * 0.08);
+    ctx.beginPath();
+    ctx.moveTo(x, py(c.high));
+    ctx.lineTo(x, py(c.low));
+    ctx.stroke();
+
+    // Body
+    const top = py(Math.max(c.open, c.close));
+    const bot = py(Math.min(c.open, c.close));
+    const bh = Math.max(1, bot - top);
+    ctx.fillStyle = bodyColor;
+    ctx.fillRect(x - candleW / 2, top, candleW, bh);
+  }
+
+  // ── Price scale ──
+  renderPriceScale(pMin, pMax, h);
+
+  // ── Time scale ──
+  renderTimeScale(from, to, w);
+
+  // ── Crosshair overlay ──
+  renderCrosshair();
+
+  // ── Update signal ──
+  updateSignal();
+}
+
+function drawLine(ctx, data, from, to, color, lw, py) {
+  ctx.beginPath();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lw;
+  let started = false;
+  for (let i = from; i <= to; i++) {
+    const v = data[i];
+    if (isNaN(v) || v <= 0) { started = false; continue; }
+    const x = indexToX(i);
+    const y = py(v);
+    if (!started) { ctx.moveTo(x, y); started = true; }
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+}
+
+function drawHLine(ctx, price, w, py, color, dash, lw, label) {
+  const y = py(price);
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lw;
+  ctx.setLineDash(dash);
+  ctx.globalAlpha = 0.7;
+  ctx.beginPath();
+  ctx.moveTo(0, y);
+  ctx.lineTo(w - PRICE_W, y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = color;
+  ctx.font = '600 9px SF Pro Display, -apple-system, sans-serif';
+  ctx.fillText(label + ' ' + formatPrice(price), 6, y - 3);
+  ctx.restore();
+}
+
+function renderPriceScale(pMin, pMax, h) {
+  const w = priceScaleEl.offsetWidth;
+  pctx.clearRect(0, 0, w, h);
+  pctx.fillStyle = '#12151c';
+  pctx.fillRect(0, 0, w, h);
+  pctx.strokeStyle = '#252a38';
+  pctx.lineWidth = 0.5;
+  pctx.beginPath(); pctx.moveTo(0, 0); pctx.lineTo(0, h); pctx.stroke();
+
+  const steps = 6;
+  pctx.fillStyle = '#5c6480';
+  pctx.font = '10px SF Pro Display, -apple-system, sans-serif';
+  pctx.textAlign = 'right';
+  for (let i = 0; i <= steps; i++) {
+    const price = pMin + (pMax - pMin) * (1 - i / steps);
+    const y = (h / steps) * i;
+    pctx.fillText(formatPrice(price), w - 4, y + 3);
+  }
+
+  // Current price line
+  if (candles.length) {
+    const last = candles[candles.length - 1];
+    const y = priceToY(last.close, pMin, pMax, h);
+    pctx.strokeStyle = last.close >= last.open ? '#26a69a' : '#ef5350';
+    pctx.lineWidth = 1;
+    pctx.beginPath(); pctx.moveTo(0, y); pctx.lineTo(w, y); pctx.stroke();
+    pctx.fillStyle = last.close >= last.open ? '#26a69a' : '#ef5350';
+    pctx.fillRect(0, y - 8, w, 16);
+    pctx.fillStyle = '#0d0f14';
+    pctx.font = 'bold 10px SF Pro Display, -apple-system, sans-serif';
+    pctx.fillText(formatPrice(last.close), w - 4, y + 4);
+  }
+}
+
+function renderTimeScale(from, to, w) {
+  const h = timeScaleEl.offsetHeight;
+  tctx.clearRect(0, 0, w, h);
+  tctx.fillStyle = '#12151c';
+  tctx.fillRect(0, 0, w, h);
+  tctx.strokeStyle = '#252a38';
+  tctx.lineWidth = 0.5;
+  tctx.beginPath(); tctx.moveTo(0, 0); tctx.lineTo(w, 0); tctx.stroke();
+  tctx.fillStyle = '#5c6480';
+  tctx.font = '9px SF Pro Display, -apple-system, sans-serif';
+  tctx.textAlign = 'center';
+
+  const step = Math.max(1, Math.floor((to - from) / 6));
+  for (let i = from; i <= to; i += step) {
+    const x = indexToX(i);
+    if (x < 10 || x > w - 10) continue;
+    const c = candles[i];
+    if (!c) continue;
+    const d = new Date(c.time);
+    const label = tfLabel(d);
+    tctx.fillText(label, x, h - 3);
+  }
+}
+
+function tfLabel(d) {
+  const tf = CFG.tf;
+  if (tf === '1d' || tf === '1w') return d.toLocaleDateString('en', { month: 'short', day: 'numeric' });
+  return d.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function renderCrosshair() {
+  const { w, h } = getChartDims();
+  octx.clearRect(0, 0, w, h);
+  if (crosshairX < 0) return;
+  octx.strokeStyle = 'rgba(155,163,184,0.35)';
+  octx.lineWidth = 0.7;
+  octx.setLineDash([3, 3]);
+  octx.beginPath(); octx.moveTo(crosshairX, 0); octx.lineTo(crosshairX, h); octx.stroke();
+  octx.beginPath(); octx.moveTo(0, crosshairY); octx.lineTo(w, crosshairY); octx.stroke();
+  octx.setLineDash([]);
+}
+
+// ═══════════════════════════════════════════════════════
+//  SIGNAL LOGIC
+// ═══════════════════════════════════════════════════════
+function updateSignal() {
+  if (!candles.length || !indicators.midBand) return;
+  const last = candles[candles.length - 1];
+  const prev = candles[candles.length - 2];
+  if (!prev) return;
+
+  const mid = indicators.midBand[candles.length - 1];
+  const ma50 = indicators.ma50 ? indicators.ma50[candles.length - 1] : null;
+  const ma100 = indicators.ma100 ? indicators.ma100[candles.length - 1] : null;
+
+  if (isNaN(mid) || mid <= 0) return;
+
+  const dot = document.getElementById('sig-dot');
+  const lbl = document.getElementById('sig-label');
+
+  // Simple signal: price above mid band + MA50 > MA100 = bullish
+  const aboveMid = last.close > mid;
+  const bullTrend = ma50 && ma100 && ma50 > ma100;
+  const bearTrend = ma50 && ma100 && ma50 < ma100;
+
+  if (aboveMid && bullTrend) {
+    dot.className = 'sig-dot bull';
+    lbl.className = 'sig-label bull';
+    lbl.textContent = 'BULL';
+  } else if (!aboveMid && bearTrend) {
+    dot.className = 'sig-dot bear';
+    lbl.className = 'sig-label bear';
+    lbl.textContent = 'BEAR';
+  } else {
+    dot.className = 'sig-dot neutral';
+    lbl.className = 'sig-label neutral';
+    lbl.textContent = 'WAIT';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  DATA FETCH
+// ═══════════════════════════════════════════════════════
+async function fetchCandles() {
+  document.getElementById('loading').style.display = 'flex';
+  const tfMap = { '5m':'5m','15m':'15m','30m':'30m','1h':'1h','2h':'2h','4h':'4h','1d':'1d','1w':'1w' };
+  const interval = tfMap[CFG.tf] || '1h';
+  const url = `https://api.binance.com/api/v3/klines?symbol=${CFG.symbol}&interval=${interval}&limit=${CFG.candle_limit}`;
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!Array.isArray(data)) throw new Error('Invalid data');
+    candles = data.map(k => ({
+      time: k[0],
+      open: parseFloat(k[1]),
+      high: parseFloat(k[2]),
+      low: parseFloat(k[3]),
+      close: parseFloat(k[4]),
+      vol: parseFloat(k[5]),
+    }));
+    calcIndicators();
+    chart.offsetX = 0;
+    updateInfoBar();
+    updatePriceBadge();
+    scheduleRender();
+  } catch (e) {
+    console.error('Fetch error:', e);
+  } finally {
+    document.getElementById('loading').style.display = 'none';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  WEBSOCKET — live last candle
+// ═══════════════════════════════════════════════════════
+function connectWS() {
+  if (ws) { ws.close(); ws = null; }
+  clearTimeout(wsReconnectTimer);
+  const sym = CFG.symbol.toLowerCase();
+  const tf = CFG.tf;
+  const url = `wss://stream.binance.com:9443/ws/${sym}@kline_${tf}`;
+  ws = new WebSocket(url);
+
+  ws.onmessage = e => {
+    const d = JSON.parse(e.data);
+    if (!d.k) return;
+    const k = d.k;
+    const c = {
+      time: k.t,
+      open: parseFloat(k.o),
+      high: parseFloat(k.h),
+      low: parseFloat(k.l),
+      close: parseFloat(k.c),
+      vol: parseFloat(k.v),
+    };
+    if (candles.length && candles[candles.length - 1].time === c.time) {
+      candles[candles.length - 1] = c;
+    } else if (candles.length && c.time > candles[candles.length - 1].time) {
+      candles.push(c);
+      if (candles.length > CFG.candle_limit + 100) candles.shift();
+    } else {
+      return;
+    }
+    calcIndicators();
+    updateInfoBar();
+    updatePriceBadge(c.close);
+    scheduleRender();
+  };
+
+  ws.onerror = () => {};
+  ws.onclose = () => {
+    wsReconnectTimer = setTimeout(connectWS, 3000);
+  };
+}
+
+// ═══════════════════════════════════════════════════════
+//  UI UPDATES
+// ═══════════════════════════════════════════════════════
+let lastPrice = 0;
+function updatePriceBadge(price) {
+  if (!price && candles.length) price = candles[candles.length - 1].close;
+  if (!price) return;
+  const badge = document.getElementById('price-badge');
+  const pct = document.getElementById('change-pct');
+  badge.textContent = formatPrice(price);
+  if (price > lastPrice && lastPrice > 0) {
+    badge.className = 'up'; setTimeout(() => badge.className = '', 600);
+  } else if (price < lastPrice && lastPrice > 0) {
+    badge.className = 'dn'; setTimeout(() => badge.className = '', 600);
+  }
+  lastPrice = price;
+
+  if (candles.length > 1) {
+    const open24 = candles[0].open;
+    const chg = ((price - open24) / open24) * 100;
+    const sign = chg >= 0 ? '+' : '';
+    pct.textContent = sign + chg.toFixed(2) + '%';
+    pct.className = chg >= 0 ? 'up' : 'dn';
+  }
+}
+
+function updateInfoBar() {
+  if (!candles.length) return;
+  const last = candles[candles.length - 1];
+  document.getElementById('ib-open').textContent = formatPrice(last.open);
+  document.getElementById('ib-high').textContent = formatPrice(last.high);
+  document.getElementById('ib-low').textContent = formatPrice(last.low);
+  document.getElementById('ib-vol').textContent = formatVol(last.vol);
+
+  const i = candles.length - 1;
+  if (indicators.atrVals) {
+    const a = indicators.atrVals[i];
+    document.getElementById('ib-atr').textContent = isNaN(a) ? '—' : formatPrice(a);
+  }
+  if (indicators.ma50) {
+    const v = indicators.ma50[i];
+    document.getElementById('ib-ma50').textContent = isNaN(v) ? '—' : formatPrice(v);
+  }
+  if (indicators.ma100) {
+    const v = indicators.ma100[i];
+    document.getElementById('ib-ma100').textContent = isNaN(v) ? '—' : formatPrice(v);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  FORMAT
+// ═══════════════════════════════════════════════════════
+function formatPrice(p) {
+  if (p >= 1000) return p.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (p >= 1) return p.toFixed(4);
+  if (p >= 0.01) return p.toFixed(5);
+  return p.toFixed(8);
+}
+function formatVol(v) {
+  if (v >= 1e9) return (v / 1e9).toFixed(1) + 'B';
+  if (v >= 1e6) return (v / 1e6).toFixed(1) + 'M';
+  if (v >= 1e3) return (v / 1e3).toFixed(1) + 'K';
+  return v.toFixed(0);
+}
+
+// ═══════════════════════════════════════════════════════
+//  INTERACTIONS — mouse / touch
+// ═══════════════════════════════════════════════════════
+chartWrap.addEventListener('mousedown', e => {
+  chart.isDragging = true;
+  chart.dragStartX = e.clientX;
+  chart.dragStartOffset = chart.offsetX;
+});
+window.addEventListener('mousemove', e => {
+  if (chart.isDragging) {
+    chart.offsetX = chart.dragStartOffset + (e.clientX - chart.dragStartX);
+    scheduleRender();
+  }
+  const rect = mainCanvas.getBoundingClientRect();
+  crosshairX = e.clientX - rect.left;
+  crosshairY = e.clientY - rect.top;
+  updateCrosshairInfo(crosshairX, crosshairY);
+  scheduleRender();
+});
+window.addEventListener('mouseup', () => { chart.isDragging = false; });
+mainCanvas.addEventListener('mouseleave', () => {
+  crosshairX = -1; crosshairY = -1;
+  document.getElementById('crosshair-info').style.display = 'none';
+  scheduleRender();
+});
+
+// Wheel zoom
+chartWrap.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 0.85 : 1.15;
+  chart.scaleX = Math.max(2, Math.min(40, chart.scaleX * factor));
+  scheduleRender();
+}, { passive: false });
+
+// Touch
+let lastTouches = [];
+chartWrap.addEventListener('touchstart', e => {
+  e.preventDefault();
+  lastTouches = Array.from(e.touches);
+  if (e.touches.length === 1) {
+    chart.isDragging = true;
+    chart.dragStartX = e.touches[0].clientX;
+    chart.dragStartOffset = chart.offsetX;
+  } else if (e.touches.length === 2) {
+    chart.isDragging = false;
+    chart.touchStartDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    chart.touchStartScale = chart.scaleX;
+  }
+}, { passive: false });
+
+chartWrap.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (e.touches.length === 1 && chart.isDragging) {
+    chart.offsetX = chart.dragStartOffset + (e.touches[0].clientX - chart.dragStartX);
+    const rect = mainCanvas.getBoundingClientRect();
+    crosshairX = e.touches[0].clientX - rect.left;
+    crosshairY = e.touches[0].clientY - rect.top;
+    updateCrosshairInfo(crosshairX, crosshairY);
+    scheduleRender();
+  } else if (e.touches.length === 2) {
+    const dist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    chart.scaleX = Math.max(2, Math.min(40, chart.touchStartScale * (dist / chart.touchStartDist)));
+    scheduleRender();
+  }
+}, { passive: false });
+
+chartWrap.addEventListener('touchend', () => {
+  chart.isDragging = false;
+  crosshairX = -1; crosshairY = -1;
+  document.getElementById('crosshair-info').style.display = 'none';
+  scheduleRender();
+});
+
+function updateCrosshairInfo(x, y) {
+  const { w } = getChartDims();
+  const { from, to } = visibleRange();
+  // Find closest candle
+  let closestIdx = -1, closestDist = Infinity;
+  for (let i = from; i <= to; i++) {
+    const cx = indexToX(i);
+    const d = Math.abs(cx - x);
+    if (d < closestDist) { closestDist = d; closestIdx = i; }
+  }
+  if (closestIdx < 0) return;
+  const c = candles[closestIdx];
+  if (!c) return;
+  const info = document.getElementById('crosshair-info');
+  info.style.display = 'block';
+  document.getElementById('ci-o').textContent = formatPrice(c.open);
+  document.getElementById('ci-h').textContent = formatPrice(c.high);
+  document.getElementById('ci-l').textContent = formatPrice(c.low);
+  document.getElementById('ci-c').textContent = formatPrice(c.close);
+}
+
+// ═══════════════════════════════════════════════════════
+//  CONTROLS
+// ═══════════════════════════════════════════════════════
+function setTF(tf) {
+  CFG.tf = tf;
+  document.querySelectorAll('.tf-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.toLowerCase() === tf.toLowerCase());
+  });
+  if (ws) { ws.close(); ws = null; }
+  fetchCandles().then(connectWS);
+}
+
+function selectSymbol(sym) {
+  CFG.symbol = sym;
+  document.getElementById('sym-label').textContent = sym.replace('USDT', '/USDT');
+  document.querySelectorAll('.sym-item').forEach(el => {
+    el.classList.toggle('active', el.textContent.replace('/', '') === sym || el.onclick?.toString().includes(sym));
+  });
+  toggleSymDropdown(false);
+  lastPrice = 0;
+  if (ws) { ws.close(); ws = null; }
+  fetchCandles().then(connectWS);
+}
+
+function toggleSymDropdown(force) {
+  const dd = document.getElementById('sym-dropdown');
+  const show = force !== undefined ? force : !dd.classList.contains('show');
+  dd.classList.toggle('show', show);
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('#sym-btn') && !e.target.closest('#sym-dropdown')) {
+    toggleSymDropdown(false);
+  }
+});
+
+// ═══════════════════════════════════════════════════════
+//  PWA INSTALL
+// ═══════════════════════════════════════════════════════
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('install-banner').classList.add('show');
+});
+function installPWA() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(() => {
+    deferredPrompt = null;
+    document.getElementById('install-banner').classList.remove('show');
+  });
+}
+function dismissInstall() {
+  document.getElementById('install-banner').classList.remove('show');
+}
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+window.addEventListener('resize', resizeCanvases);
+resizeCanvases();
+
+// Service worker registration
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+fetchCandles().then(connectWS);
+</script>
+</body>
+</html>
